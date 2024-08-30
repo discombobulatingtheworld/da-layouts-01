@@ -22,6 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
@@ -67,22 +70,32 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun SSOLogin(providerName: String, imageResourceId: Int) {
-    Button(
+//    Button(
+//        onClick = { /*TODO*/ },
+//        shape = RoundedCornerShape(10.dp),
+//        border = BorderStroke(0.dp, color = Color.Transparent),
+//        colors = ButtonDefaults.buttonColors(
+//            contentColor = Color.Transparent,
+//            containerColor = Color.Transparent,
+//            disabledContentColor = Color.Transparent,
+//            disabledContainerColor = Color.Transparent,
+//        ),
+//    ) {
+//        Image(
+//            painter = painterResource(id = imageResourceId),
+//            contentDescription = providerName,
+//            modifier = Modifier
+//                .size(70.dp)
+//        )
+//    }
+    IconButton(
         onClick = { /*TODO*/ },
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(0.dp, color = Color.Transparent),
-        colors = ButtonDefaults.buttonColors(
-            contentColor = Color.Transparent,
-            containerColor = Color.Transparent,
-            disabledContentColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent,
-        ),
+        modifier = Modifier
+            .size(70.dp)
     ) {
         Image(
             painter = painterResource(id = imageResourceId),
             contentDescription = providerName,
-            modifier = Modifier
-                .size(70.dp)
         )
     }
 }
@@ -165,29 +178,52 @@ fun LoginActions(formState: LoginState) {
 }
 
 @Composable
-fun LoginInputField(text: String, placeholder: String, onValueChange: (String) -> Unit, isPassword: Boolean = false) {
+fun PasswordToggle(input: PasswordLoginInput) {
+    val icons: Map<Boolean, Int> = mapOf(
+        false to R.drawable.baseline_visibility_24,
+        true to R.drawable.baseline_visibility_off_24,
+    )
+
+    IconToggleButton(
+        checked = input.isVisible!!.value,
+        onCheckedChange = {
+            input.isVisible!!.value = !input.isVisible!!.value
+        }
+    ) {
+        Icon(
+            painter = painterResource(id = icons.getValue(input.isVisible!!.value)),
+            contentDescription = "Toggle visibility",
+        )
+    }
+}
+
+@Composable
+fun LoginInputField(input: LoginInput) {
+    val toggle: @Composable () -> Unit = @Composable { PasswordToggle(input as PasswordLoginInput) }
+
     TextField(
-        value = text,
-        onValueChange = onValueChange,
+        value = input.value!!.value,
+        onValueChange = { newValue -> input.value!!.value = newValue },
         singleLine = true,
         placeholder = {
-            Text(text = placeholder)
+            Text(text = input.placeholder)
         },
         modifier = Modifier
             .padding(10.dp)
             .fillMaxWidth(1f),
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        visualTransformation = if (input.isPassword && !(input as PasswordLoginInput).isVisible!!.value) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = if (input.isPassword) toggle else null,
     )
 }
 
 @Composable
-fun LoginInputs(form: LoginForm) {
+fun LoginInputs(email: LoginInput, pass: LoginInput) {
     Column(
         modifier = Modifier
             .padding(vertical = 15.dp)
     ) {
-        LoginInputField(text = form.email?.value?:"" , placeholder = "Email input", onValueChange = { newValue -> form.email?.value = newValue })
-        LoginInputField(text = form.pass?.value?:"", placeholder = "Password input", onValueChange = { newValue -> form.pass?.value = newValue }, true)
+        LoginInputField(input = email)
+        LoginInputField(input = pass)
         Row(
             modifier = Modifier
                 .fillMaxWidth(1f),
@@ -209,7 +245,7 @@ fun LoginPanel(formState: LoginState) {
          modifier = Modifier
              .padding(20.dp)
     ) {
-        LoginInputs(formState.form)
+        LoginInputs(formState.nameInput, formState.passwordInput)
         LoginActions(formState)
         LoginSSO(formState.ssoProviders)
     }
@@ -238,30 +274,46 @@ fun LoginBanner() {
     }
 }
 
-class LoginForm(
+open class LoginInput(
+    val name: String,
+    val placeholder: String,
 ) {
-    var email: MutableState<String>? = null
-    var pass: MutableState<String>? = null
+    var value: MutableState<String>? = null
+    open val isPassword: Boolean = false
+}
+
+class PasswordLoginInput(
+    name: String,
+    placeholder: String
+) : LoginInput(name, placeholder) {
+    override val isPassword: Boolean = true
+    var isVisible: MutableState<Boolean>? = null
+
+    val toggleVisibility: () -> Unit = {
+        this.isVisible!!.value = !this.isVisible!!.value
+    }
 }
 
 class LoginState() {
-    val form: LoginForm = LoginForm()
+    val nameInput: LoginInput = LoginInput(name = "email", placeholder = "Email input")
+    val passwordInput: PasswordLoginInput = PasswordLoginInput("password", "Password input")
     val ssoProviders = mapOf<String, Int>(
         "Google" to R.drawable.google,
         "Facebook" to R.drawable.facebook,
     )
 
     val clear: () -> Unit = {
-        this.form.email?.value = ""
-        this.form.pass?.value = ""
+        this.nameInput.value!!.value = ""
+        this.passwordInput.value!!.value = ""
     }
 }
 
 @Composable
 fun LoginView(modifier: Modifier) {
     val formState = LoginState()
-    formState.form.email = remember { mutableStateOf<String>("") }
-    formState.form.pass = remember { mutableStateOf<String>("") }
+    formState.nameInput.value = remember { mutableStateOf<String>("") }
+    formState.passwordInput.value = remember { mutableStateOf<String>("") }
+    formState.passwordInput.isVisible = remember { mutableStateOf<Boolean>(false) }
 
     Column() {
         LoginBanner()
